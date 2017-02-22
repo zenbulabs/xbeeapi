@@ -1,7 +1,5 @@
 package xbeeapi
 
-type FrameType byte
-
 const (
 	TxRequest64                       = 0x00
 	TxRequest16                       = 0x01
@@ -78,6 +76,10 @@ func checksumFromData(frameType byte, data []byte) byte {
 	return 0xff - cs
 }
 
+func lengthFromHeader(serializedFrame []byte) uint16 {
+	return uint16(int(serializedFrame[1])<<8) + int(serializedFrame[2])
+}
+
 func DeserializeFrame(serializedFrame []byte) (*Frame, error) {
 	if len(serializedFrame) < 6 {
 		return nil, &FrameParseError{msg: "Frame too short"}
@@ -87,7 +89,7 @@ func DeserializeFrame(serializedFrame []byte) (*Frame, error) {
 		return nil, &FrameParseError{msg: "Invalid check sum"}
 	}
 
-	expectedLength := (int(serializedFrame[1]) << 8) + int(serializedFrame[2])
+	expectedLength := lengthFromHeader(serializedFrame)
 	actualLength := len(serializedFrame[3:(len(serializedFrame) - 1)])
 	if expectedLength != actualLength {
 		return nil, &FrameParseError{msg: "Expected length does not match actual length"}
@@ -122,4 +124,29 @@ func NewFrameFromData(frameType byte, data []byte) (*Frame, error) {
 	}
 
 	return &f, nil
+}
+
+func (f *Frame) Serialize() ([]byte, error) {
+	buf := new(bytes.Buffer)
+	err := buf.WriteByte(0x7e)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, f.Length)
+	if err != nil {
+		return nil, err
+	}
+	err := buf.WriteByte(f.FrameType)
+	if err != nil {
+		return nil, err
+	}
+	err = binary.Write(buf, binary.BigEndian, f.Data)
+	if err != nil {
+		return nil, err
+	}
+	err := buf.WriteByte(checkSumFromData(f.FrameType, f.Data))
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
