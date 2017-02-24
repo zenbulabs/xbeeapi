@@ -57,20 +57,22 @@ func TestStart(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	t.SkipNow()
 	port := NewTestPort([]byte{})
 	td := &TestData{frame: make(chan *Frame)}
 	api := NewXBeeAPI(port, td.readCb)
-	frame, _ := NewFrameFromData(0x0f, []byte{0x02, 0x04, 0x06})
-	n, err := api.SendRawFrame(frame)
+	frameSend, _ := NewFrameFromData(0x0f, []byte{0x02, 0x04, 0x06})
+	n, err := api.SendRawFrame(frameSend)
 	if n == 0 || err != nil {
 		t.Error("SendRawFrame error", n, err)
 	}
 	api.Start()
 
-	f := <-td.frame
-	if f != frame {
-		t.Error("Invalid frame", td.status)
+	frameRecv := <-td.frame
+	f1, err1 := frameSend.Serialize()
+	f2, err2 := frameRecv.Serialize()
+
+	if err1 != nil || err2 != nil || !bytes.Equal(f1, f2) {
+		t.Error("Error in sending frames.", "Sent:", f1, "Received:", f2)
 	}
 
 	api.Finish()
