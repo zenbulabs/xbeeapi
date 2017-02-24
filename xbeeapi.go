@@ -6,7 +6,7 @@ import (
 )
 
 type XBeeStatusType byte
-type ReadCallback func(frame *Frame, status *XBeeReadStatus)
+type ReadCallback func(frame *Frame, status XBeeReadStatus)
 
 const (
 	XBeeOK XBeeStatusType = iota
@@ -34,7 +34,7 @@ func NewXBeeAPI(serialPort io.ReadWriter, readCb ReadCallback) *XBeeAPI {
 	}
 }
 
-func (api *XBeeAPI) Connect() {
+func (api *XBeeAPI) Start() {
 	go func() {
 		defer close(api.done)
 		for {
@@ -67,38 +67,48 @@ func (api *XBeeAPI) SendFrame(f Frameable) (int, error) {
 	return api.SendRawFrame(frame)
 }
 
-func (api *XBeeAPI) readFrames() {
+func (api *XBeeAPI) readFrames() (int, error) {
 	frameBytes := make([]byte, 1024, 1024)
 	n, err := api.port.Read(frameBytes[0:1])
-	if n == 0 || err != nil || frameBytes[0] != FrameStartDelimiter {
-		api.readCb(nil, &XBeeReadStatus{Status: XBeeReadError, Error: errors.New("Frame read: invalid start delimiter")})
-		return
+	if n == 0 || err == io.EOF {
+		return n, err
 	}
-	n, err = api.port.Read(frameBytes[1:3])
+	if frameBytes[0] != FrameStartDelimiter {
+		err = errors.New("Frame read: invalid start delimiter")
+		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
+		return n, err
+	}
 
+	n, err = api.port.Read(frameBytes[1:3])
 	if n != 2 || err != nil {
-		api.readCb(nil, &XBeeReadStatus{Status: XBeeReadError, Error: errors.New("Frame read: invalid length field")})
-		return
+		err = errors.New("Frame read: invalid length field")
+		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
+		return n, err
 	}
-	dataLen := lengthFromHeader(frameBytes[1:3])
+	dataLen := lengthFromHeader(frameBytes)
 
 	if dataLen == 0 && dataLen > 1024 {
-		api.readCb(nil, &XBeeReadStatus{Status: XBeeReadError, Error: errors.New("Frame read: invalid data size")})
-		return
+		err = errors.New("Frame read: invalid data size")
+		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
+		return n, err
 	}
-	totalSize := 3 + dataLen + 1
+
+	totalSize := totalFrameSize(dataLen)
 	n, err = api.port.Read(frameBytes[3:totalSize])
 
-	if n == int(dataLen+1) && err == nil {
+	if n == totalSize-3 && err == nil {
 		frame, parseErr := DeserializeFrame(frameBytes[0:totalSize])
 		if parseErr == nil {
-			api.readCb(frame, &XBeeReadStatus{Status: XBeeOK})
-		} else {
-			api.readCb(nil, &XBeeReadStatus{Status: XBeeReadError, Error: parseErr})
+			api.readCb(frame, XBeeReadStatus{Status: XBeeOK})
+			return int(totalSize), nil
 		}
-	} else {
-		api.readCb(nil, &XBeeReadStatus{Status: XBeeReadError, Error: errors.New("Frame read: missing data or checksum")})
+		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: parseErr})
+		return int(totalSize), parseErr
 	}
+
+	err = errors.New("Frame read: missing data or checksum")
+	api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
+	return int(totalSize), err
 }
 
 func (api *XBeeAPI) Finish() {

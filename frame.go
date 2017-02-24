@@ -71,7 +71,7 @@ type FrameParseError struct {
 func (e *FrameParseError) Error() string { return e.msg }
 
 func checksumVerify(serializedFrame []byte) bool {
-	var cs byte = 0
+	var cs byte
 
 	for _, b := range serializedFrame[3:] {
 		cs += b
@@ -81,7 +81,7 @@ func checksumVerify(serializedFrame []byte) bool {
 }
 
 func checksumFromData(frameType byte, data []byte) byte {
-	var cs byte = frameType
+	cs := frameType
 
 	for _, b := range data {
 		cs += b
@@ -94,6 +94,15 @@ func lengthFromHeader(serializedFrame []byte) uint16 {
 	return uint16(int(serializedFrame[1])<<8) + uint16(serializedFrame[2])
 }
 
+func totalFrameSize(dataLen uint16) int {
+	// start(1) + datalen(2) + data(variable) + checksum(1)
+	return 3 + int(dataLen) + 1
+}
+
+func dataWithoutType(serializedFrame []byte) []byte {
+	return serializedFrame[4:(len(serializedFrame) - 1)]
+}
+
 func DeserializeFrame(serializedFrame []byte) (*Frame, error) {
 	if len(serializedFrame) < 6 {
 		return nil, &FrameParseError{msg: "Frame too short"}
@@ -103,17 +112,19 @@ func DeserializeFrame(serializedFrame []byte) (*Frame, error) {
 		return nil, &FrameParseError{msg: "Invalid check sum"}
 	}
 
+	data := dataWithoutType(serializedFrame)
 	expectedLength := int(lengthFromHeader(serializedFrame))
-	actualLength := len(serializedFrame[3:(len(serializedFrame) - 1)])
-	if expectedLength != actualLength {
+	if expectedLength != len(data)+1 {
 		return nil, &FrameParseError{msg: "Expected length does not match actual length"}
 	}
 
+	dataCopy := make([]byte, len(data))
+	copy(dataCopy, data)
 	checksumIndex := len(serializedFrame) - 1
 	f := Frame{
 		Length:    uint16(expectedLength),
 		FrameType: serializedFrame[3],
-		Data:      serializedFrame[4:checksumIndex],
+		Data:      dataCopy,
 		Checksum:  serializedFrame[checksumIndex],
 	}
 
@@ -131,7 +142,7 @@ func NewFrameFromData(frameType byte, data []byte) (*Frame, error) {
 	copy(dataCopy, data)
 
 	f := Frame{
-		Length:    uint16(len(data)),
+		Length:    uint16(len(data) + 1),
 		FrameType: frameType,
 		Data:      dataCopy,
 		Checksum:  checksumFromData(frameType, data),

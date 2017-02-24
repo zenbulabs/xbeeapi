@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSimple(t *testing.T) {
+func TestSimpleFrame(t *testing.T) {
 	frameBytes := []byte{0x7e, 0x00, 0x07, 0x88, 0x01, 0x4d, 0x59, 0x00, 0x00, 0x00, 0xd0}
 	frame, err := DeserializeFrame(frameBytes)
 
