@@ -3,7 +3,6 @@ package xbeeapi
 import (
 	"bytes"
 	"testing"
-	"time"
 )
 
 type TestPort struct {
@@ -68,7 +67,6 @@ func TestWrite(t *testing.T) {
 		t.Error("SendRawFrame error", n, err)
 	}
 	api.Start()
-	time.Sleep(1000 * time.Millisecond)
 
 	f := <-td.frame
 	if f != frame {
