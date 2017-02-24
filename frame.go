@@ -1,5 +1,10 @@
 package xbeeapi
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 const (
 	TxRequest64                       = 0x00
 	TxRequest16                       = 0x01
@@ -43,6 +48,15 @@ const (
 	FrameError                        = 0xfe
 )
 
+const (
+	FrameStartDelimiter = 0x7e
+)
+
+type Frameable interface {
+	FrameType() byte
+	FrameData() []byte
+}
+
 type Frame struct {
 	Length    uint16
 	FrameType byte
@@ -77,19 +91,19 @@ func checksumFromData(frameType byte, data []byte) byte {
 }
 
 func lengthFromHeader(serializedFrame []byte) uint16 {
-	return uint16(int(serializedFrame[1])<<8) + int(serializedFrame[2])
+	return uint16(int(serializedFrame[1])<<8) + uint16(serializedFrame[2])
 }
 
 func DeserializeFrame(serializedFrame []byte) (*Frame, error) {
 	if len(serializedFrame) < 6 {
 		return nil, &FrameParseError{msg: "Frame too short"}
-	} else if serializedFrame[0] != 0x7e {
+	} else if serializedFrame[0] != FrameStartDelimiter {
 		return nil, &FrameParseError{msg: "Expecting 7e as start delimiter"}
 	} else if !checksumVerify(serializedFrame) {
 		return nil, &FrameParseError{msg: "Invalid check sum"}
 	}
 
-	expectedLength := lengthFromHeader(serializedFrame)
+	expectedLength := int(lengthFromHeader(serializedFrame))
 	actualLength := len(serializedFrame[3:(len(serializedFrame) - 1)])
 	if expectedLength != actualLength {
 		return nil, &FrameParseError{msg: "Expected length does not match actual length"}
@@ -128,7 +142,7 @@ func NewFrameFromData(frameType byte, data []byte) (*Frame, error) {
 
 func (f *Frame) Serialize() ([]byte, error) {
 	buf := new(bytes.Buffer)
-	err := buf.WriteByte(0x7e)
+	err := buf.WriteByte(FrameStartDelimiter)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +150,7 @@ func (f *Frame) Serialize() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err := buf.WriteByte(f.FrameType)
+	err = buf.WriteByte(f.FrameType)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +158,7 @@ func (f *Frame) Serialize() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	err := buf.WriteByte(checkSumFromData(f.FrameType, f.Data))
+	err = buf.WriteByte(checksumFromData(f.FrameType, f.Data))
 	if err != nil {
 		return nil, err
 	}
