@@ -19,13 +19,6 @@ func (t *TestData) readCb(f *Frame, s XBeeReadStatus) {
 	t.frame <- f
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func NewTestPort(b []byte) *TestPort {
 	return &TestPort{data: bytes.NewBuffer(b)}
 }
@@ -39,18 +32,27 @@ func (p *TestPort) Write(data []byte) (int, error) {
 }
 
 func TestStart(t *testing.T) {
-	b, _ := NewFrameFromData(0x88, []byte{0x01, 0x4d, 0x59, 0x00, 0x00, 0x00})
-	//testFrameBytes := []byte{0x7e, 0x00, 0x07, 0x88, 0x01, 0x4d, 0x59, 0x00, 0x00, 0x00, 0xd0}
-	testFrameBytes, _ := b.Serialize()
+	nf := NewFrame(NewRawFrameData([]byte{0x88, 0x01, 0x4d, 0x59, 0x00, 0x00, 0x00}...))
+	testFrameBytes, _ := nf.Serialize()
 	port := NewTestPort(testFrameBytes)
 	td := &TestData{frame: make(chan *Frame, 1)}
-	api := NewXBeeAPI(port, td.readCb)
-	api.Start()
 
+	api := NewXBeeAPI(port, td.readCb)
+	err := api.Start()
+	if err != nil {
+		t.Error("Could not start", err)
+		return
+	}
+	err = api.Start()
+	if err == nil {
+		t.Error("Expected error from double start")
+		return
+	}
 	f := <-td.frame
 	if f == nil {
 		t.Error("Invalid frame from read")
 		t.Error(td.status)
+		return
 	}
 
 	api.Finish()
@@ -60,8 +62,8 @@ func TestWrite(t *testing.T) {
 	port := NewTestPort([]byte{})
 	td := &TestData{frame: make(chan *Frame)}
 	api := NewXBeeAPI(port, td.readCb)
-	frameSend, _ := NewFrameFromData(0x0f, []byte{0x02, 0x04, 0x06})
-	n, err := api.SendRawFrame(frameSend)
+	frameSend := NewFrame(NewRawFrameData([]byte{0x0f, 0x02, 0x04, 0x06}...))
+	n, err := api.SendRawFrames(frameSend)
 	if n == 0 || err != nil {
 		t.Error("SendRawFrame error", n, err)
 	}

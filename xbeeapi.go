@@ -3,9 +3,13 @@ package xbeeapi
 import (
 	"errors"
 	"io"
+	"log"
+	"sync"
+	"time"
 )
 
 type XBeeStatusType byte
+
 type ReadCallback func(frame *Frame, status XBeeReadStatus)
 
 const (
@@ -16,101 +20,100 @@ const (
 )
 
 type XBeeReadStatus struct {
-	Status XBeeStatusType
-	Error  error
+	StatusCode XBeeStatusType
+	Error      error
 }
 
 type XBeeAPI struct {
-	port   io.ReadWriter
-	readCb ReadCallback
-	done   chan bool
+	fwr     *frameReadWriter
+	readCb  ReadCallback
+	mu      *sync.Mutex
+	running bool
 }
 
-func NewXBeeAPI(serialPort io.ReadWriter, readCb ReadCallback) *XBeeAPI {
+func NewXBeeAPI(port io.ReadWriter, readCb ReadCallback) *XBeeAPI {
 	return &XBeeAPI{
-		port:   serialPort,
-		readCb: readCb,
-		done:   make(chan bool, 1),
+		fwr:     newFrameReader(port),
+		readCb:  readCb,
+		mu:      &sync.Mutex{},
+		running: false,
 	}
 }
 
-func (api *XBeeAPI) Start() {
+func (api *XBeeAPI) Start() error {
+	var err error
+
+	api.mu.Lock()
+	if api.running {
+		err = errors.New("XBeeAPI already started")
+	} else {
+		api.running = true
+	}
+	api.mu.Unlock()
+
+	if err != nil {
+		return err
+	}
+
+	api.fwr.init()
+
 	go func() {
-		defer close(api.done)
 		for {
-			select {
-			case done := <-api.done:
-				if done {
-					return
-				}
-			default:
-				api.readFrames()
+			if !api.Running() {
+				log.Println("Stopping...")
+				return
+			}
+			err := api.readFrames()
+			if err != nil {
+				time.Sleep(200 * time.Millisecond)
+				log.Println("Reader error:", err)
 			}
 		}
 	}()
+
+	return nil
 }
 
-func (api *XBeeAPI) SendRawFrame(f *Frame) (int, error) {
-	frameBytes, err := f.Serialize()
+func (api *XBeeAPI) SendRawFrames(frame ...*Frame) (int, error) {
+	n, err := api.fwr.write(frame...)
+	return n, err
+}
+
+func (api *XBeeAPI) SendFrames(frameData ...FrameData) (int, error) {
+	frames := []*Frame(nil)
+
+	for _, fd := range frameData {
+		frames = append(frames, NewFrame(fd))
+	}
+
+	return api.SendRawFrames(frames...)
+}
+
+func (api *XBeeAPI) readFrames() error {
+	frames, err := api.fwr.read()
+
 	if err != nil {
-		return 0, err
+		api.readCb(nil, XBeeReadStatus{StatusCode: XBeeReadError, Error: err})
+		return err
 	}
 
-	return api.port.Write(frameBytes)
+	for _, frame := range frames {
+		api.readCb(frame, XBeeReadStatus{StatusCode: XBeeOK, Error: nil})
+	}
+
+	return nil
 }
 
-func (api *XBeeAPI) SendFrame(f Frameable) (int, error) {
-	frame, err := NewFrameFromData(f.FrameType(), f.FrameData())
-	if err != nil {
-		return 0, err
-	}
-	return api.SendRawFrame(frame)
-}
-
-func (api *XBeeAPI) readFrames() (int, error) {
-	frameBytes := make([]byte, 1024, 1024)
-	n, err := api.port.Read(frameBytes[0:1])
-	if n == 0 || err == io.EOF {
-		return n, err
-	}
-	if frameBytes[0] != FrameStartDelimiter {
-		err = errors.New("Frame read: invalid start delimiter")
-		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
-		return n, err
-	}
-
-	n, err = api.port.Read(frameBytes[1:3])
-	if n != 2 || err != nil {
-		err = errors.New("Frame read: invalid length field")
-		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
-		return n, err
-	}
-	dataLen := lengthFromHeader(frameBytes)
-
-	if dataLen == 0 && dataLen > 1024 {
-		err = errors.New("Frame read: invalid data size")
-		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
-		return n, err
-	}
-
-	totalSize := totalFrameSize(dataLen)
-	n, err = api.port.Read(frameBytes[3:totalSize])
-
-	if n == totalSize-3 && err == nil {
-		frame, parseErr := DeserializeFrame(frameBytes[0:totalSize])
-		if parseErr == nil {
-			api.readCb(frame, XBeeReadStatus{Status: XBeeOK})
-			return int(totalSize), nil
-		}
-		api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: parseErr})
-		return int(totalSize), parseErr
-	}
-
-	err = errors.New("Frame read: missing data or checksum")
-	api.readCb(nil, XBeeReadStatus{Status: XBeeReadError, Error: err})
-	return int(totalSize), err
+func (api *XBeeAPI) Running() (r bool) {
+	api.mu.Lock()
+	r = api.running
+	api.mu.Unlock()
+	return
 }
 
 func (api *XBeeAPI) Finish() {
-	api.done <- true
+	api.mu.Lock()
+	api.running = false
+	api.fwr.init()
+	api.mu.Unlock()
 }
