@@ -1,44 +1,37 @@
 package xbeeapi
 
 type ATCommand struct {
-	frameData *RawFrameData
+	FrameID byte
+	Command string
+	Params  []byte
 }
 
-func NewATCommand(frameID byte, commandType string, params []byte) *ATCommand {
-	if len([]byte(commandType)) != 2 {
-		return nil
+func ParseATCommand(rfd *RawFrameData) (*ATCommand, error) {
+	if !rfd.IsValid() || rfd.FrameType() != FrameTypeATCommand {
+		return nil, &FrameParseError{msg: "Expecting frame type AT command"}
 	}
-	data := append([]byte{FrameTypeATCommand, frameID, commandType[0], commandType[1]}, params...)
-	return &ATCommand{frameData: NewRawFrameData(data...)}
-}
-
-func ATCommandFrameData(rfd *RawFrameData) (*ATCommand, error) {
-	at := &ATCommand{frameData: rfd}
+	if rfd.Len() < 3 {
+		return nil, &FrameParseError{msg: "Frame data too small for AT command"}
+	}
+	at := &ATCommand{FrameID: rfd.Data()[0], Command: string(rfd.Data()[1:3])}
+	if rfd.Len() > 3 {
+		at.Params = rfd.Data()[3:]
+	}
 	if !at.IsValid() {
 		return nil, &FrameParseError{msg: "Invalid frame data for AT command"}
 	}
+
 	return at, nil
 }
 
-func (at *ATCommand) FrameID() byte {
-	return at.frameData.buf[0]
-}
-
-func (at *ATCommand) CommandType() string {
-	return string(at.frameData.buf[1:3])
-}
-
-func (at *ATCommand) Param() []byte {
-	if len(at.frameData.buf) > 3 {
-		return at.frameData.buf[3:]
-	}
-	return nil
-}
-
 func (at *ATCommand) RawFrameData() *RawFrameData {
-	return at.frameData
+	return NewRawFrameData(concat([]byte{FrameTypeATCommand, at.FrameID}, []byte(at.Command), at.Params)...)
 }
 
 func (at *ATCommand) IsValid() bool {
-	return len(at.frameData.buf) >= 3
+	if len(at.Command) == 2 {
+		return true
+	}
+
+	return false
 }

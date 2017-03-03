@@ -51,7 +51,7 @@ func TestNewFrameFromData(t *testing.T) {
 }
 
 func TestATCommand(t *testing.T) {
-	cmd := NewATCommand(1, "AP", nil)
+	cmd := &ATCommand{FrameID: 1, Command: "AP", Params: nil}
 	frame := NewFrame(cmd.RawFrameData())
 	frameBytes, err := frame.Serialize()
 

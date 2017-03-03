@@ -87,7 +87,7 @@ func (rfd *RawFrameData) RawFrameData() *RawFrameData {
 }
 
 func (rfd *RawFrameData) IsValid() bool {
-	return true
+	return rfd.Len() > 0
 }
 
 func NewFrameData(fd FrameData) *RawFrameData {

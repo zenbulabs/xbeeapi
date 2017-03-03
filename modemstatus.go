@@ -18,23 +18,19 @@ const (
 )
 
 type ModemStatus struct {
-	status byte
+	Status byte
 }
 
-func NewModemStatus(status byte) (*ModemStatus, error) {
-	return &ModemStatus{status: status}, nil
-}
+func ParseModemStatus(rfd *RawFrameData) (*ModemStatus, error) {
+	if !rfd.IsValid() || len(rfd.Data()) != 1 {
+		return nil, &FrameParseError{msg: "Expecting frame type modem status"}
+	}
 
-func ModemStatusFrameData(rfd *RawFrameData) *ModemStatus {
-	return &ModemStatus{status: rfd.buf[0]}
-}
-
-func (ms *ModemStatus) Status() byte {
-	return ms.status
+	return &ModemStatus{Status: rfd.Data()[0]}, nil
 }
 
 func (ms *ModemStatus) Description() string {
-	switch ms.status {
+	switch ms.Status {
 	case ModemHardwareReset:
 		return "Hardware Reset"
 	case ModemWatchdogTimerReset:
@@ -61,5 +57,13 @@ func (ms *ModemStatus) Description() string {
 		return "Network Stack Error"
 	}
 
-	return fmt.Sprintf("Unknown Modem Status: %x", ms.status)
+	return fmt.Sprintf("Unknown Modem Status: %x", ms.Status)
+}
+
+func (ms *ModemStatus) RawFrameData() *RawFrameData {
+	return NewRawFrameData(ms.Status)
+}
+
+func (ms *ModemStatus) IsValid() bool {
+	return ms.Status <= ModemStackError
 }
