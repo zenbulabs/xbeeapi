@@ -2,7 +2,6 @@ package xbeeapi
 
 import (
 	"bytes"
-	//"encoding/hex"
 	"testing"
 )
 

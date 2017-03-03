@@ -45,6 +45,7 @@ const (
 
 type FrameData interface {
 	RawFrameData() *RawFrameData
+	IsValid() bool
 }
 
 type RawFrameData struct {
@@ -83,6 +84,10 @@ func (rfd *RawFrameData) Checksum() byte {
 
 func (rfd *RawFrameData) RawFrameData() *RawFrameData {
 	return rfd
+}
+
+func (rfd *RawFrameData) IsValid() bool {
+	return true
 }
 
 func NewFrameData(fd FrameData) *RawFrameData {

@@ -10,8 +10,8 @@ import (
 func readCb(frame *xbeeapi.Frame, status xbeeapi.XBeeReadStatus) {
 	fmt.Println("FrameLength:", frame.Length, "FrameType:", frame.FrameData.FrameType(), "Data:", frame.FrameData.Data(), "Checksum:", frame.Checksum)
 	if frame.FrameData.FrameType() == xbeeapi.FrameTypeATCommand {
-		atcommand := xbeeapi.ATCommandFrameData(frame.FrameData)
-		fmt.Println("FrameID:", atcommand.FrameID, "CmdType:", atcommand.CommandType(), "Params:", atcommand.Params())
+		atcommand, _ := xbeeapi.ATCommandFrameData(frame.FrameData)
+		fmt.Println("FrameID:", atcommand.FrameID, "CmdType:", atcommand.CommandType(), "Params:", atcommand.Param())
 	} else if frame.FrameData.FrameType() == xbeeapi.FrameTypeATCommandResponse {
 		//TODO
 	}
