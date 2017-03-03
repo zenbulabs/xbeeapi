@@ -61,7 +61,7 @@ func ATCommandStatusDescription(status byte) string {
 		return fmt.Sprintf("Invalid Command %d", status)
 	case ATCommandInvalidParam:
 		return fmt.Sprintf("Invalid Params%d", status)
-
 	}
+
 	return fmt.Sprintf("AT Command Status Unknown %d", status)
 }
