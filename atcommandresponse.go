@@ -1,7 +1,6 @@
 package xbeeapi
 
 import "fmt"
-import z "github.com/zenbulabs/xbeeapi/zigbee"
 
 type ATCommandStatus byte
 
@@ -35,10 +34,6 @@ func ATCommandResponseFrameData(rfd *RawFrameData) (*ATCommandResponse, error) {
 
 func (atr *ATCommandResponse) FrameID() byte {
 	return atr.frameData.buf[0]
-}
-
-func st() *z.Zcl {
-	return &z.Zcl{}
 }
 
 func (atr *ATCommandResponse) CommandType() string {
