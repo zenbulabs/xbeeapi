@@ -47,6 +47,7 @@ const (
 
 type FrameData interface {
 	RawFrameData() *RawFrameData
+	FrameType() byte
 	IsValid() bool
 }
 
@@ -111,6 +112,8 @@ func ParseFrameData(rfd *RawFrameData) (FrameData, error) {
 		return ParseATCommandQueue(rfd)
 	case FrameTypeExplicitAddressingCommandFrame:
 		return ParseTxExplicitAddressing(rfd)
+	case FrameTypeExplicitRxIndicator:
+		return ParseRxExplicitIndicator(rfd)
 	}
 	return nil, &FrameParseError{msg: fmt.Sprintf("Unsupported frame type: %02x", rfd.FrameType())}
 }

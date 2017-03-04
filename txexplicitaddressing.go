@@ -73,6 +73,10 @@ func (tx *TxExplicitAddressing) IsValid() bool {
 	return false
 }
 
+func (tx *TxExplicitAddressing) FrameType() byte {
+	return FrameTypeExplicitAddressingCommandFrame
+}
+
 func (tx *TxExplicitAddressing) SetOptionsFlags(txOptionFlags ...TxOptionFlag) {
 	tx.Options = setTxOptionsFlags(tx.Options, txOptionFlags...)
 }

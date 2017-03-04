@@ -39,3 +39,7 @@ func (at *ATCommandQueue) IsValid() bool {
 
 	return false
 }
+
+func (at *ATCommandQueue) FrameType() byte {
+	return FrameTypeATCommandQueueRegisterValue
+}

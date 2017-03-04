@@ -59,6 +59,10 @@ func (atr *ATCommandResponse) IsValid() bool {
 	return false
 }
 
+func (at *ATCommandResponse) FrameType() byte {
+	return FrameTypeATCommandResponse
+}
+
 func ATCommandStatusDescription(status byte) string {
 	switch status {
 	case ATCommandOK:

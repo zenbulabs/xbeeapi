@@ -48,7 +48,7 @@ func ParseRxExplicitIndicator(rfd *RawFrameData) (*RxExplicitIndicator, error) {
 }
 
 func (rx *RxExplicitIndicator) RawFrameData() *RawFrameData {
-	b := []byte{FrameTypeExplicitAddressingCommandFrame, rx.FrameID}
+	b := []byte{FrameTypeExplicitRxIndicator, rx.FrameID}
 	address64, _ := hexToBytes(rx.Address64)
 	address16, _ := hexToBytes(rx.Address16)
 	b = concat(b, address64, address16)
@@ -69,6 +69,10 @@ func (rx *RxExplicitIndicator) IsValid() bool {
 	}
 
 	return false
+}
+
+func (rx *RxExplicitIndicator) FrameType() byte {
+	return FrameTypeExplicitRxIndicator
 }
 
 func (rx *RxExplicitIndicator) SetOptionsFlags(rxOptionFlags ...RxOptionFlag) {

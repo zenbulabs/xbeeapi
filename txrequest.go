@@ -57,6 +57,10 @@ func (tx *TxRequest) IsValid() bool {
 	return false
 }
 
+func (tx *TxRequest) FrameType() byte {
+	return FrameTypeTxRequest
+}
+
 func (tx *TxRequest) SetOptionsFlags(txOptionFlags ...TxOptionFlag) {
 	tx.Options = setTxOptionsFlags(tx.Options, txOptionFlags...)
 }

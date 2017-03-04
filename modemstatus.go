@@ -69,3 +69,7 @@ func (ms *ModemStatus) RawFrameData() *RawFrameData {
 func (ms *ModemStatus) IsValid() bool {
 	return ms.Status <= ModemStackError
 }
+
+func (ms *ModemStatus) FrameType() byte {
+	return FrameTypeModemStatus
+}

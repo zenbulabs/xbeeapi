@@ -41,3 +41,7 @@ func (at *ATCommand) IsValid() bool {
 
 	return false
 }
+
+func (at *ATCommand) FrameType() byte {
+	return FrameTypeATCommand
+}
