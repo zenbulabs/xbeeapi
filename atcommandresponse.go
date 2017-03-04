@@ -1,6 +1,11 @@
 package xbeeapi
 
-import "fmt"
+import (
+	"bytes"
+	"fmt"
+)
+
+const MinATCommandResponseSize = 4
 
 const (
 	ATCommandOK = iota
@@ -20,17 +25,20 @@ type ATCommandResponse struct {
 
 func ParseATCommandResponse(rfd *RawFrameData) (*ATCommandResponse, error) {
 	if !rfd.IsValid() || rfd.FrameType() != FrameTypeATCommandResponse {
-		return nil, &FrameParseError{msg: "Expecting frame type AT command response"}
+		return nil, &FrameParseError{msg: "Expecting frame type ATCommandResponse"}
 	}
-	if len(rfd.Data()) < 4 {
-		return nil, &FrameParseError{msg: "Frame data too small for AT command response"}
+	if len(rfd.Data()) < MinATCommandResponseSize {
+		return nil, &FrameParseError{msg: "Frame data too small for ATCommandResponse"}
 	}
-	at := &ATCommandResponse{FrameID: rfd.Data()[0], Command: string(rfd.Data()[1:3]), Status: rfd.Data()[3]}
-	if len(rfd.Data()) > 4 {
-		at.Params = rfd.Data()[4:]
+	buf := bytes.NewBuffer(rfd.Data())
+	at := &ATCommandResponse{
+		FrameID: buf.Next(1)[0],
+		Command: string(buf.Next(2)),
+		Status:  buf.Next(1)[0],
+		Params:  copySlice(buf.Bytes()),
 	}
 	if !at.IsValid() {
-		return nil, &FrameParseError{msg: "Invalid frame data for AT command"}
+		return nil, &FrameParseError{msg: "Invalid frame data for ATCommandResponse"}
 	}
 
 	return at, nil

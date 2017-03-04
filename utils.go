@@ -16,6 +16,15 @@ func concat(s []byte, others ...[]byte) []byte {
 	return s
 }
 
+func copySlice(s []byte) []byte {
+	if s == nil {
+		return nil
+	}
+	cpy := make([]byte, len(s))
+	copy(cpy, s)
+	return cpy
+}
+
 func hexToBytes(hex string) ([]byte, error) {
 	result := []byte{}
 	for _, h := range hex {

@@ -1,5 +1,9 @@
 package xbeeapi
 
+import "bytes"
+
+const MinATCommandSize = 3
+
 type ATCommand struct {
 	FrameID byte
 	Command string
@@ -8,17 +12,19 @@ type ATCommand struct {
 
 func ParseATCommand(rfd *RawFrameData) (*ATCommand, error) {
 	if !rfd.IsValid() || rfd.FrameType() != FrameTypeATCommand {
-		return nil, &FrameParseError{msg: "Expecting frame type AT command"}
+		return nil, &FrameParseError{msg: "Expecting frame type ATCommand"}
 	}
-	if rfd.Len() < 3 {
-		return nil, &FrameParseError{msg: "Frame data too small for AT command"}
+	if rfd.Len() < MinATCommandSize {
+		return nil, &FrameParseError{msg: "Frame data too small for ATCommand"}
 	}
-	at := &ATCommand{FrameID: rfd.Data()[0], Command: string(rfd.Data()[1:3])}
-	if rfd.Len() > 3 {
-		at.Params = rfd.Data()[3:]
+	buf := bytes.NewBuffer(rfd.Data())
+	at := &ATCommand{
+		FrameID: buf.Next(1)[0],
+		Command: string(buf.Next(2)),
+		Params:  copySlice(buf.Bytes()),
 	}
 	if !at.IsValid() {
-		return nil, &FrameParseError{msg: "Invalid frame data for AT command"}
+		return nil, &FrameParseError{msg: "Invalid frame data for ATCommand"}
 	}
 
 	return at, nil

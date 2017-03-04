@@ -1,5 +1,7 @@
 package xbeeapi
 
+import "fmt"
+
 const (
 	FrameTypeTxRequest64                       = 0x00
 	FrameTypeTxRequest16                       = 0x01
@@ -25,7 +27,7 @@ const (
 	FrameTypeDigiMeshAggregateAddressingUpdate = 0x8e
 	FrameTypeWifiIODataSampleRxIndicator       = 0x8f
 	FrameTypeXBRxResponse                      = 0x90
-	FrameTypeXBExplicitRxIndicator             = 0x91
+	FrameTypeExplicitRxIndicator               = 0x91
 	FrameTypeXBIODataSampleRxIndicator         = 0x92
 	FrameTypeXBSensorReadIndicator             = 0x94
 	FrameTypeXBNodeIdentificationIndicator     = 0x95
@@ -92,4 +94,23 @@ func (rfd *RawFrameData) IsValid() bool {
 
 func NewFrameData(fd FrameData) *RawFrameData {
 	return NewRawFrameData(fd.RawFrameData().buf...)
+}
+
+func ParseFrameData(rfd *RawFrameData) (FrameData, error) {
+	if rfd.Len() == 0 {
+		return nil, &FrameParseError{msg: "Frame data not large enough"}
+	}
+	switch rfd.FrameType() {
+	case FrameTypeATCommand:
+		return ParseATCommand(rfd)
+	case FrameTypeATCommandResponse:
+		return ParseATCommandResponse(rfd)
+	case FrameTypeModemStatus:
+		return ParseModemStatus(rfd)
+	case FrameTypeATCommandQueueRegisterValue:
+		return ParseATCommandQueue(rfd)
+	case FrameTypeExplicitAddressingCommandFrame:
+		return ParseTxExplicitAddressing(rfd)
+	}
+	return nil, &FrameParseError{msg: fmt.Sprintf("Unsupported frame type: %02x", rfd.FrameType())}
 }

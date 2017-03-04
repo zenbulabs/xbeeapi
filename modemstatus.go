@@ -2,6 +2,8 @@ package xbeeapi
 
 import "fmt"
 
+const MinModemStatusSize = 1
+
 const (
 	ModemHardwareReset      = 0x00
 	ModemWatchdogTimerReset = 0x01
@@ -22,8 +24,8 @@ type ModemStatus struct {
 }
 
 func ParseModemStatus(rfd *RawFrameData) (*ModemStatus, error) {
-	if !rfd.IsValid() || len(rfd.Data()) != 1 {
-		return nil, &FrameParseError{msg: "Expecting frame type modem status"}
+	if !rfd.IsValid() || len(rfd.Data()) != MinModemStatusSize {
+		return nil, &FrameParseError{msg: "Expecting frame type ModemStatus"}
 	}
 
 	return &ModemStatus{Status: rfd.Data()[0]}, nil
